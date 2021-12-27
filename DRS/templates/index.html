@@ -10,11 +10,15 @@
 
   <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
 
-  <link rel="stylesheet" href="css/normalize.css">
-  <link rel="stylesheet" href="css/skeleton.css">
-  <link rel="stylesheet" href="css/style.css">
 
-  <link rel="icon" type="image/png" href="images/exchange-rate.png">
+
+  <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='normalize.css') }}">
+  <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='skeleton.css') }}">
+  <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='style.css') }}">
+
+
+
+
 
 </head>
 <body>
@@ -26,7 +30,7 @@
   </ul>
 </div>
 
-  <form action="blabla.html" method="post" enctype="multipart/form-data">
+  <form action="http://localhost:5000/register" method="post" enctype="multipart/form-data">
     <div class="container">
       <h1>Register</h1>
       <div class="fill">
