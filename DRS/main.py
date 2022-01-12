@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, flash, request
+from flask import Flask, render_template, flash, request, session
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators
 
 import dbconnection
@@ -12,6 +12,7 @@ STATIC_DIR = os.path.abspath('../static')
 # app = Flask(__name__) # to make the app run without any
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 app = Flask(__name__)
+app.secret_key = 'any random string'
 
 @app.route("/")
 def main():
@@ -36,8 +37,10 @@ def login():
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM Users WHERE email= %s AND passwrd= %s", (email, password))
         temp = cursor.fetchone()
+
         if (temp):
             res = temp[0] + ' ' + temp[1]
+            session['email'] = temp[2]
             return render_template('index.html', result=res)
         else:
             flash("error, wrong password")
@@ -55,6 +58,47 @@ def register_page():
         conn.close()
     return render_template("login.html", result=result)
 
+
+
+@app.route('/edit_profile', methods =["GET"])
+def get_profile_information(temp=None):
+    conn = dbconnection.connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Users WHERE email= %s", (session['email']))
+    row = cursor.fetchone()
+    temp.name = row[0]
+    temp.lastname = row[1]
+    temp.email = row[2]
+    temp.address = row[3]
+    temp.city = row[4]
+    temp.country = row[5]
+    temp.phoneNumber = row[6]
+    cursor.close()
+    conn.close()
+    return render_template("modify_account.html", result=temp)
+
+
+
+def modify_profile(params, temp=None):
+    conn = dbconnection.connection()
+    cursor = conn.cursor()
+    cursor.execute("Update Users SET firstname=%s, lastname=%s, address=%s, city=%s, country=%s, passwrd=%s, "
+                   "phoneNumber=%s WHERE email=%s", params.firstname, params.lastname, params.address, params.city,
+                   params.country, params.passwrd, params.phoneNumber, session['email'])
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    temp.name = params.firstname
+    temp.lastname = params.lastname
+    temp.address = params.address
+    temp.city = params.city
+    temp.country = params.country
+    temp.phoneNumber = params.phoneNumber
+    return render_template("modify_account.html", result=temp)
+
+
+
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(debug=True, port=5000)
 
