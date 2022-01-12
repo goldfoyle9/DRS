@@ -15,12 +15,15 @@ app = Flask(__name__)
 
 @app.route("/")
 def main():
-    return render_template('index.html')
+    return render_template('login.html')
 
 @app.route("/login_redirect", methods=["GET"])
 def login_redirect():
     return render_template('login.html')
 
+@app.route("/register_redirect", methods=["GET"])
+def register_redirect():
+    return render_template('register.html')
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -32,8 +35,10 @@ def login():
         conn = connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM Users WHERE email= %s AND passwrd= %s", (email, password))
-        if (cursor.fetchone()):
-            return render_template('proba.html', result=email)
+        temp = cursor.fetchone()
+        if (temp):
+            res = temp[0] + ' ' + temp[1]
+            return render_template('index.html', result=res)
         else:
             flash("error, wrong password")
 
@@ -48,7 +53,7 @@ def register_page():
         conn.commit()
         cursor.close()
         conn.close()
-    return render_template("proba.html", result=result)
+    return render_template("login.html", result=result)
 
 if __name__ == "__main__":
     app.run(port=5000)
