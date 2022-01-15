@@ -1,4 +1,6 @@
 import os
+import random
+
 from flask import Flask, render_template, flash, request, session
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators
 
@@ -99,6 +101,43 @@ def modify_profile(params, temp=None):
     temp.country = params.country
     temp.phoneNumber = params.phoneNumber
     return render_template("modify_account.html", result=temp)
+
+
+def link_card(params):
+    conn = dbconnection.connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO Cards (card_num, exp_date, cvc_code, balance) VALUES (%s, %s, %s, %s)", params.card_num,
+                   params.exp_date, params.cvc_code, random.randrange(1, 100000, 1))
+
+    cursor.execute("UPDATE Users SET card_num=%s WHERE email=%s", params.card_num, session['email'])
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return render_template("index.html")
+
+def verify_account(params):
+    conn = dbconnection.connection()
+    cursor = conn.cursor()
+    cursor.execute("select * from cards where cards.card_num = (select card_num from users where email=%s)",
+                   session['email'])
+    row = cursor.fethcone()
+    cursor.execute("update cards set balance=%s where card_num=%s", row[3] - 1, row[0])
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return
+
+def transfer_funds_to_online(funds):
+    conn = dbconnection.connection()
+    cursor = conn.cursor()
+    cursor.execute("select * from cards where cards.card_num = (select card_num from users where email=%s)",
+                   session['email'])
+    row = cursor.fetchone()
+
+
+
+    return render_template("index.html")
 
 
 if __name__ == "__main__":
