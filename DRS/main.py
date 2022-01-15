@@ -3,8 +3,8 @@ from flask import Flask, render_template, flash, request, session
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators
 
 import dbconnection
+from classes.HelperClasses import Temp
 from dbconnection import connection
-
 
 TEMPLATE_DIR = os.path.abspath('../templates')
 STATIC_DIR = os.path.abspath('../static')
@@ -14,13 +14,16 @@ app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 app = Flask(__name__)
 app.secret_key = 'any random string'
 
+
 @app.route("/")
 def main():
     return render_template('login.html')
 
+
 @app.route("/login_redirect", methods=["GET"])
 def login_redirect():
     return render_template('login.html')
+
 
 @app.route("/register_redirect", methods=["GET"])
 def register_redirect():
@@ -37,13 +40,13 @@ def login():
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM Users WHERE email= %s AND passwrd= %s", (email, password))
         temp = cursor.fetchone()
-
         if (temp):
-            res = temp[0] + ' ' + temp[1]
             session['email'] = temp[2]
+            res = Temp(temp[0] + ' ' + temp[1], temp[8] is not None)
             return render_template('index.html', result=res)
         else:
             flash("error, wrong password")
+
 
 @app.route('/register', methods=["GET", "POST"])
 def register_page():
@@ -52,15 +55,16 @@ def register_page():
         conn = dbconnection.connection()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO Users(firstname, lastname, email, address, city, country, passwrd, phoneNumber) "
-                       "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (result['name'], result['lastName'], result['email'], result['address'], result['city'], result['country'], result['psw'], result['phone']))
+                       "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (
+                       result['name'], result['lastName'], result['email'], result['address'], result['city'],
+                       result['country'], result['psw'], result['phone']))
         conn.commit()
         cursor.close()
         conn.close()
     return render_template("login.html", result=result)
 
 
-
-@app.route('/edit_profile', methods =["GET"])
+@app.route('/edit_profile', methods=["GET"])
 def get_profile_information(temp=None):
     conn = dbconnection.connection()
     cursor = conn.cursor()
@@ -76,7 +80,6 @@ def get_profile_information(temp=None):
     cursor.close()
     conn.close()
     return render_template("modify_account.html", result=temp)
-
 
 
 def modify_profile(params, temp=None):
@@ -98,7 +101,5 @@ def modify_profile(params, temp=None):
     return render_template("modify_account.html", result=temp)
 
 
-
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-

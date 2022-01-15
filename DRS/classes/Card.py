@@ -1,6 +1,6 @@
 class Card:
-    def __init__(self, number, name, expirationDate, securityCode):
+    def __init__(self, number, expirationDate, securityCode, balance):
         self.number = number
-        self.name = name
         self.expirationDate = expirationDate
         self.securityCode = securityCode
+        self.balance = balance
