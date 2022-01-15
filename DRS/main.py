@@ -139,6 +139,15 @@ def transfer_funds_to_online(funds):
 
     return render_template("index.html")
 
+def check_balance():
+    conn = dbconnection.connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT balance FROM Cards WHERE cards.card_num = (select card_num from users where email=%s)",
+                   session['email'])
+    row = cursor.fetchone()
+    conn.close()
+    return render_template("check_balance.html", result=row)
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
