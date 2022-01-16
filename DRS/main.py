@@ -2,11 +2,10 @@ import os
 import random
 
 from flask import Flask, render_template, flash, request, session
-from wtforms import Form, StringField, TextAreaField, PasswordField, validators
+from config import db, ma
+from flaskext.mysql import MySQL
 
-import dbconnection
 from classes.HelperClasses import Temp
-from dbconnection import connection
 
 TEMPLATE_DIR = os.path.abspath('../templates')
 STATIC_DIR = os.path.abspath('../static')
@@ -16,9 +15,19 @@ app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 app = Flask(__name__)
 app.secret_key = 'any random string'
 
+mysql = MySQL()
+app.config['MYSQL_DATABASE_USER'] = 'root'
+app.config['MYSQL_DATABASE_PASSWORD'] = 'loltyler1'
+app.config['MYSQL_DATABASE_DB'] = 'drs_db'
+app.config['MYSQL_DATABASE_HOST'] = '127.0.0.1'
+mysql.init_app(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:loltyler1@127.0.0.1/drs_db'
+db.init_app(app)
+ma.init_app(app)
 
 @app.route("/")
 def main():
+
     return render_template('login.html')
 
 
@@ -38,7 +47,7 @@ def login():
         email = request.form['email']
         password = request.form['psw']
 
-        conn = connection()
+        conn = mysql.connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM Users WHERE email= %s AND passwrd= %s", (email, password))
         temp = cursor.fetchone()
@@ -54,7 +63,7 @@ def login():
 def register_page():
     if request.method == 'POST':
         result = request.form
-        conn = dbconnection.connection()
+        conn = mysql.connect()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO Users(firstname, lastname, email, address, city, country, passwrd, phoneNumber) "
                        "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (
@@ -68,7 +77,7 @@ def register_page():
 
 @app.route('/edit_profile', methods=["GET"])
 def get_profile_information(temp=None):
-    conn = dbconnection.connection()
+    conn = mysql.connect()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM Users WHERE email= %s", (session['email']))
     row = cursor.fetchone()
@@ -85,7 +94,7 @@ def get_profile_information(temp=None):
 
 
 def modify_profile(params, temp=None):
-    conn = dbconnection.connection()
+    conn = mysql.connect()
     cursor = conn.cursor()
     cursor.execute("Update Users SET firstname=%s, lastname=%s, address=%s, city=%s, country=%s, passwrd=%s, "
                    "phoneNumber=%s WHERE email=%s", params.firstname, params.lastname, params.address, params.city,
@@ -104,7 +113,7 @@ def modify_profile(params, temp=None):
 
 
 def link_card(params):
-    conn = dbconnection.connection()
+    conn = mysql.connect()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO Cards (card_num, exp_date, cvc_code, balance) VALUES (%s, %s, %s, %s)", params.card_num,
                    params.exp_date, params.cvc_code, random.randrange(1, 100000, 1))
@@ -117,7 +126,7 @@ def link_card(params):
     return render_template("index.html")
 
 def verify_account(params):
-    conn = dbconnection.connection()
+    conn = mysql.connect()
     cursor = conn.cursor()
     cursor.execute("select * from cards where cards.card_num = (select card_num from users where email=%s)",
                    session['email'])
@@ -129,7 +138,7 @@ def verify_account(params):
     return
 
 def transfer_funds_to_online(funds):
-    conn = dbconnection.connection()
+    conn = mysql.connect()
     cursor = conn.cursor()
     cursor.execute("select * from cards where cards.card_num = (select card_num from users where email=%s)",
                    session['email'])
@@ -140,7 +149,7 @@ def transfer_funds_to_online(funds):
     return render_template("index.html")
 
 def check_balance():
-    conn = dbconnection.connection()
+    conn = mysql.connect()
     cursor = conn.cursor()
     cursor.execute("SELECT balance FROM Cards WHERE cards.card_num = (select card_num from users where email=%s)",
                    session['email'])
