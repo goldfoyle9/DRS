@@ -1,6 +1,9 @@
 import os
 import random
 
+
+
+
 from flask import Flask, render_template, flash, request, session
 from config import db, ma
 from flaskext.mysql import MySQL
@@ -17,11 +20,11 @@ app.secret_key = 'any random string'
 
 mysql = MySQL()
 app.config['MYSQL_DATABASE_USER'] = 'root'
-app.config['MYSQL_DATABASE_PASSWORD'] = 'loltyler1'
+app.config['MYSQL_DATABASE_PASSWORD'] = 'password'
 app.config['MYSQL_DATABASE_DB'] = 'drs_db'
-app.config['MYSQL_DATABASE_HOST'] = '127.0.0.1'
+app.config['MYSQL_DATABASE_HOST'] = 'localhost'
 mysql.init_app(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:loltyler1@127.0.0.1/drs_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:password@mysql:3306/drs_db'
 db.init_app(app)
 ma.init_app(app)
 
@@ -56,7 +59,7 @@ def login():
             res = Temp(temp[0] + ' ' + temp[1], temp[8] is not None)
             return render_template('index.html', result=res)
         else:
-            flash("error, wrong password")
+            flash("errorrrr, wrong password")
 
 
 @app.route('/register', methods=["GET", "POST"])
@@ -159,4 +162,4 @@ def check_balance():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, host='0.0.0.0')
