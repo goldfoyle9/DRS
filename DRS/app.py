@@ -54,6 +54,14 @@ def edit_redirect():
 def index():
     return render_template('index.html')
 
+@app.route("/add_card_redirect", methods=["GET", "POST"])
+def add_card_redirect():
+    return render_template('add_card.html')
+
+@app.route("/add_balance_redirect", methods=["GET", "POST"])
+def add_balance_redirect():
+    return render_template('add_balance.html')
+
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -150,41 +158,68 @@ def check_balance():
     return render_template('balance.html', result=result)
 
 
-def link_card(params):
-    conn = mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO Cards (card_num, exp_date, cvc_code, balance) VALUES (%s, %s, %s, %s)", params.card_num,
-                   params.exp_date, params.cvc_code, random.randrange(1, 100000, 1))
+@app.route('/add_card', methods=["GET", "POST"])
+def link_card():
+    if request.method == 'POST':
+        result = request.form
+        conn = mysql.connect()
+        cursor = conn.cursor()
+        cursor.execute("select * from Cards where card_num=%s", result['card_num'])
+        row = cursor.fetchone()
+        if(row):
+            cursor.execute("update Users set card_num=%s where email=%s", (result['card_num'], session['email']))
+            #baciti neki eror
 
-    cursor.execute("UPDATE Users SET card_num=%s WHERE email=%s", params.card_num, session['email'])
+        conn.commit()
+        cursor.close()
+        conn.close()
+        verify_account()
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+
     return render_template("index.html")
 
 
-def verify_account(params):
+def verify_account():
     conn = mysql.connect()
     cursor = conn.cursor()
-    cursor.execute("select * from cards where cards.card_num = (select card_num from users where email=%s)",
+    cursor.execute("select * from Cards where Cards.card_num = (select card_num from Users where email=%s)",
                    session['email'])
-    row = cursor.fethcone()
-    cursor.execute("update cards set balance=%s where card_num=%s", row[3] - 1, row[0])
+    row = cursor.fetchone()
+    response = requests.get('http://api.exchangeratesapi.io/v1/latest?access_key=fba506b7b878a42746e79023db275313')
+    valute = response.json()['rates']
+    dinari = valute['RSD']
+    dolari = valute['USD']
+    cursor.execute("update Cards set balance=%s where card_num=%s", (row[3] - dinari/dolari, row[0]))
     conn.commit()
     cursor.close()
     conn.close()
     return
 
+@app.route('/add_balance', methods = ["GET", "POST"])
+def add_balance():
+    if request.method == "POST":
+        result = request.form
+        conn = mysql.connect()
+        cursor = conn.cursor()
+        cursor.execute("select * from Cards where Cards.card_num = (select card_num from Users where email=%s)",
+                       session['email'])
+        row = cursor.fetchone()
+        balance = row[3]
+        form_amount = int(result['balance'])
 
-def transfer_funds_to_online(funds):
-    conn = mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("select * from cards where cards.card_num = (select card_num from users where email=%s)",
-                   session['email'])
-    row = cursor.fetchone()
+        if(balance >= form_amount):
+            cursor.execute("UPDATE Cards set balance=%s where card_num=%s", (balance - form_amount, row[0]))
+            cursor.execute("update Users set balance=balance+%s where email=%s", (form_amount, session['email']))
+        else:
+            print("Nije moguce")
 
-    return render_template("index.html")
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return render_template("index.html")
+
+
+
 
 
 
