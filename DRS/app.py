@@ -1,9 +1,6 @@
 import os
 import random
 
-
-
-
 from flask import Flask, render_template, flash, request, session
 from config import db, ma
 from flaskext.mysql import MySQL
@@ -22,15 +19,16 @@ mysql = MySQL()
 app.config['MYSQL_DATABASE_USER'] = 'root'
 app.config['MYSQL_DATABASE_PASSWORD'] = 'password'
 app.config['MYSQL_DATABASE_DB'] = 'drs_db'
-app.config['MYSQL_DATABASE_HOST'] = 'db'
+# app.config['MYSQL_DATABASE_HOST'] = 'db' #za docker
+app.config['MYSQL_DATABASE_HOST'] = '127.0.0.1'
 mysql.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:password@mysql:3306/drs_db'
 db.init_app(app)
 ma.init_app(app)
 
+
 @app.route("/")
 def main():
-
     return render_template('login.html')
 
 
@@ -42,6 +40,16 @@ def login_redirect():
 @app.route("/register_redirect", methods=["GET"])
 def register_redirect():
     return render_template('register.html')
+
+
+@app.route("/edit_redirect", methods=["GET"])
+def edit_redirect():
+    return render_template('modify_account.html')
+
+
+@app.route("/index_redirect", methods=["GET", "POST"])
+def index():
+    return render_template('index.html')
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -56,6 +64,7 @@ def login():
         temp = cursor.fetchone()
         if (temp):
             session['email'] = temp[2]
+            session['name'] = temp[0]
             res = Temp(temp[0] + ' ' + temp[1], temp[8] is not None)
             return render_template('index.html', result=res)
         else:
@@ -70,16 +79,16 @@ def register_page():
         cursor = conn.cursor()
         cursor.execute("INSERT INTO Users(firstname, lastname, email, address, city, country, passwrd, phoneNumber) "
                        "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (
-                       result['name'], result['lastName'], result['email'], result['address'], result['city'],
-                       result['country'], result['psw'], result['phone']))
+                           result['name'], result['lastName'], result['email'], result['address'], result['city'],
+                           result['country'], result['psw'], result['phone']))
         conn.commit()
         cursor.close()
         conn.close()
     return render_template("login.html", result=result)
 
 
-@app.route('/edit_profile', methods=["GET"])
-def get_profile_information(temp=None):
+
+def get_profile_information(temp):
     conn = mysql.connect()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM Users WHERE email= %s", (session['email']))
@@ -93,26 +102,26 @@ def get_profile_information(temp=None):
     temp.phoneNumber = row[6]
     cursor.close()
     conn.close()
-    return render_template("modify_account.html", result=temp)
+    return temp
 
 
-def modify_profile(params, temp=None):
+
+@app.route('/modify_profile', methods=["GET", "POST"])
+def modify_profile(temp=None):
     conn = mysql.connect()
     cursor = conn.cursor()
+    result = request.form
     cursor.execute("Update Users SET firstname=%s, lastname=%s, address=%s, city=%s, country=%s, passwrd=%s, "
-                   "phoneNumber=%s WHERE email=%s", params.firstname, params.lastname, params.address, params.city,
-                   params.country, params.passwrd, params.phoneNumber, session['email'])
+                   "phoneNumber=%s WHERE email=%s", (result['name'], result['lastName'], result['address'], result['city'],
+                   result['country'], result['psw'], result['phone'], session['email']))
 
     conn.commit()
     cursor.close()
     conn.close()
-    temp.name = params.firstname
-    temp.lastname = params.lastname
-    temp.address = params.address
-    temp.city = params.city
-    temp.country = params.country
-    temp.phoneNumber = params.phoneNumber
-    return render_template("modify_account.html", result=temp)
+
+    session['name'] = result['name']
+
+    return render_template("index.html", result=result)
 
 
 def link_card(params):
@@ -128,6 +137,7 @@ def link_card(params):
     conn.close()
     return render_template("index.html")
 
+
 def verify_account(params):
     conn = mysql.connect()
     cursor = conn.cursor()
@@ -140,6 +150,7 @@ def verify_account(params):
     conn.close()
     return
 
+
 def transfer_funds_to_online(funds):
     conn = mysql.connect()
     cursor = conn.cursor()
@@ -147,9 +158,8 @@ def transfer_funds_to_online(funds):
                    session['email'])
     row = cursor.fetchone()
 
-
-
     return render_template("index.html")
+
 
 def check_balance():
     conn = mysql.connect()
