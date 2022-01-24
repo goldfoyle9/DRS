@@ -2,6 +2,7 @@ import os
 import random
 
 import requests as requests
+
 import response
 
 from flask import Flask, render_template, flash, request, session
@@ -62,6 +63,9 @@ def add_card_redirect():
 def add_balance_redirect():
     return render_template('add_balance.html')
 
+@app.route("/get_transactions_redirect", methods=["GET"])
+def get_transactions_redirect():
+    return render_template("transactions.html")
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -218,9 +222,17 @@ def add_balance():
         conn.close()
         return render_template("index.html")
 
+@app.route('/get_transactions', methods= ["GET", "POST"])
+def get_transactions():
 
-
-
+    conn= mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s", session['email'])
+    data = cursor.fetchall()
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return render_template("transactions.html", transactions = data)
 
 
 
