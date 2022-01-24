@@ -1,6 +1,9 @@
 import os
 import random
 
+import requests as requests
+import response
+
 from flask import Flask, render_template, flash, request, session
 from config import db, ma
 from flaskext.mysql import MySQL
@@ -50,6 +53,7 @@ def edit_redirect():
 @app.route("/index_redirect", methods=["GET", "POST"])
 def index():
     return render_template('index.html')
+
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -111,7 +115,7 @@ def modify_profile(temp=None):
     conn = mysql.connect()
     cursor = conn.cursor()
     result = request.form
-    cursor.execute("Update Users SET firstname=%s, lastname=%s, address=%s, city=%s, country=%s, passwrd=%s, "
+    cursor.execute("UPDATE Users SET firstname=%s, lastname=%s, address=%s, city=%s, country=%s, passwrd=%s, "
                    "phoneNumber=%s WHERE email=%s", (result['name'], result['lastName'], result['address'], result['city'],
                    result['country'], result['psw'], result['phone'], session['email']))
 
@@ -122,6 +126,28 @@ def modify_profile(temp=None):
     session['name'] = result['name']
 
     return render_template("index.html", result=result)
+
+
+@app.route('/check_balance', methods=["POST", "GET"])
+def check_balance():
+    conn = mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Users WHERE email=%s",
+                   session['email'])
+
+    row = cursor.fetchone()
+    dinari = row[9]
+    response = requests.get('http://api.exchangeratesapi.io/v1/latest?access_key=fba506b7b878a42746e79023db275313')
+    valute = response.json()['rates']
+    euri = dinari/valute['RSD']
+    dolari = euri*valute['USD']
+    jeni = euri*valute['JPY']
+    aud = euri*valute['AUD']
+    gbp = euri*valute['GBP']
+    result = [dinari, euri, dolari, jeni, aud, gbp]
+
+    conn.close()
+    return render_template('balance.html', result=result)
 
 
 def link_card(params):
@@ -161,14 +187,6 @@ def transfer_funds_to_online(funds):
     return render_template("index.html")
 
 
-def check_balance():
-    conn = mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT balance FROM Cards WHERE cards.card_num = (select card_num from users where email=%s)",
-                   session['email'])
-    row = cursor.fetchone()
-    conn.close()
-    return render_template("check_balance.html", result=row)
 
 
 if __name__ == "__main__":

@@ -300,55 +300,27 @@
         <!-- partial -->
         <div class="main-panel">
           <div class="content-wrapper">
-             <div class="container-scroller">
-      <div class="container-fluid page-body-wrapper full-page-wrapper">
-        <div class="row w-100 m-0">
-          <div class="content-wrapper full-page-wrapper d-flex align-items-center auth login-bg">
-            <div class="card col-lg-4 mx-auto">
-              <div class="card-body px-5 py-5">
-                <h3 class="card-title text-center mb-3">Modify account</h3>
-                <form action="http://localhost:5000/modify_profile" method="post" enctype="multipart/form-data">
+              <h3><b>Prikaz stanja u valutama</b></h3>
+              <ul>
                   <div class="form-group">
-                    <label>Name *</label>
-                    <input type="text" name="name" id="name" required class="form-control p_input">
+                    <label>Dinari(RSD): {{result[0]}} </label>
                   </div>
                   <div class="form-group">
-                    <label>Last name *</label>
-                    <input type="text" class="form-control p_input" name="lastName" id="lastName" required><br>
+                    <label>Euri(EUR): {{result[1]}}</label>
                   </div>
                   <div class="form-group">
-                    <label>Address *</label>
-                    <input type="text" class="form-control p_input" name="address" id="address" required><br>
+                    <label>Dolari(USD): {{result[2]}}</label>
                   </div>
                   <div class="form-group">
-                    <label>City *</label>
-                    <input type="text" class="form-control p_input" name="city" id="city" required><br>
+                    <label>Jeni(JPI): {{result[3]}}</label>
                   </div>
                   <div class="form-group">
-                    <label>Country *</label>
-                    <input type="text" class="form-control p_input" name="country" id="country" required><br>
+                    <label>Australijski dolari(AUD): {{result[4]}}</label>
                   </div>
                   <div class="form-group">
-                    <label>Password *</label>
-                    <input type="password" class="form-control p_input" name="psw" id="psw" required><br>
+                    <label>Funte(gbp): {{result[5]}}</label>
                   </div>
-                  <div class="form-group">
-                    <label>Phone number *</label>
-                    <input type="number" class="form-control p_input" name="phone" id="phone" required><br>
-                  </div>
-                  <div class="text-center">
-                    <button type="submit" class="btn btn-primary btn-block enter-btn">Submit changes</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-          <!-- content-wrapper ends -->
-        </div>
-        <!-- row ends -->
-      </div>
-      <!-- page-body-wrapper ends -->
-    </div>
+              </ul>
           </div>
         </div>
 
