@@ -90,7 +90,7 @@ def login():
             res = Temp(temp[0] + ' ' + temp[1], temp[8] is not None)
             return render_template('index.html', result=res)
         else:
-            flash("errorrrr, wrong password")
+            return render_template('login.html', error="Nepostojeci korisnik ili nije dobar password")
 
 
 @app.route('/register', methods=["GET", "POST"])
@@ -178,7 +178,8 @@ def link_card():
         row = cursor.fetchone()
         if(row):
             cursor.execute("update Users set card_num=%s where email=%s", (result['card_num'], session['email']))
-            #baciti neki eror
+        else:
+            return render_template("add_card.html", error="Kartica ne postoji u bazi")
 
         conn.commit()
         cursor.close()
@@ -221,7 +222,7 @@ def add_balance():
             cursor.execute("UPDATE Cards set balance=%s where card_num=%s", (balance - form_amount, row[0]))
             cursor.execute("update Users set balance=balance+%s where email=%s", (form_amount, session['email']))
         else:
-            print("Nije moguce")
+            return render_template("add_balance.html", error="Nemate dovoljno sredstava na kartici")
 
         conn.commit()
         cursor.close()
@@ -233,7 +234,7 @@ def get_transactions():
 
     conn= mysql.connect()
     cursor = conn.cursor()
-    cursor.execute("SELECT * from Transactions where email=%s", session['email'])
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (session['email'], session['email']))
     data = cursor.fetchall()
     conn.commit()
     cursor.close()
@@ -267,11 +268,73 @@ def send_transaction():
                 cursor.execute("insert into Transactions (email, amount, emailTo) VALUES(%s, %s, %s)",
                                (session['email'],iznos, Failed))
         else:
-            print("Nema para")
+            return render_template("send_transaction.html", error="Nemate dovoljno para na racunu")
     conn.commit()
     cursor.close()
     conn.close()
     return redirect(url_for('get_transactions'))
+
+@app.route('/sortAsc', methods= ["GET", "POST"])
+def sortAsc():
+
+    conn= mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s",(session['email'], session['email']) )
+    data = cursor.fetchall()
+    sorted_data = sorted(data, key=lambda tup: tup[1], reverse=False)
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return render_template("transactions.html", transactions = sorted_data)
+
+@app.route('/sortDesc', methods= ["GET", "POST"])
+def sortDesc():
+
+    conn= mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s",(session['email'], session['email']) )
+    data = cursor.fetchall()
+    sorted_data = sorted(data, key=lambda tup: tup[1], reverse=True)
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return render_template("transactions.html", transactions = sorted_data)
+
+
+@app.route('/filter_from', methods= ["GET", "POST"])
+def filter_from():
+
+    conn= mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (session['email'], session['email']))
+    data = cursor.fetchall()
+    transactions = []
+    for row in data:
+        if row[0] == session['email']:
+            transactions.append(row)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return render_template("transactions.html", transactions = transactions)
+
+
+@app.route('/filter_reciever', methods=["GET", "POST"])
+def filter_reciever():
+    conn = mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (session['email'], session['email']))
+    data = cursor.fetchall()
+    transactions = []
+    for row in data:
+        if row[2] == session['email']:
+            transactions.append(row)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return render_template("transactions.html", transactions=transactions)
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, host='0.0.0.0')
