@@ -5,7 +5,9 @@ import requests as requests
 
 import response
 
-from flask import Flask, render_template, flash, request, session
+from flask import Flask, render_template, flash, request, session, url_for
+from werkzeug.utils import redirect
+
 from config import db, ma
 from flaskext.mysql import MySQL
 
@@ -66,6 +68,10 @@ def add_balance_redirect():
 @app.route("/get_transactions_redirect", methods=["GET"])
 def get_transactions_redirect():
     return render_template("transactions.html")
+
+@app.route("/send_transaction_redirect", methods=["GET", "POST"])
+def send_transaction_redirect():
+    return render_template("send_transaction.html")
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -234,7 +240,38 @@ def get_transactions():
     conn.close()
     return render_template("transactions.html", transactions = data)
 
-
+@app.route('/send_transaction', methods=["GET", "POST"])
+def send_transaction():
+    if request.method == "POST":
+        result = request.form
+        conn = mysql.connect()
+        cursor = conn.cursor()
+        Failed = "None"
+        cursor.execute("select * from Users where email=%s", session['email'])
+        row = cursor.fetchone()
+        valuta= result['valuta']
+        response = requests.get('http://api.exchangeratesapi.io/v1/latest?access_key=fba506b7b878a42746e79023db275313')
+        valute = response.json()['rates']
+        dinar = valute['RSD']
+        euro = float(result['amount'])/valute[valuta]
+        iznos = dinar*euro
+        if(row[9]>=iznos):
+            cursor.execute("update Users set balance=%s where email=%s", (row[9]-iznos, session['email']))
+            cursor.execute("select * from Users where email=%s", result['emailTo'])
+            user = cursor.fetchone()
+            if (user[8]):
+                cursor.execute("update Users set balance=balance+%s where email=%s",(iznos, result['emailTo']) )
+                cursor.execute("insert into Transactions (email, amount, emailTo) VALUES(%s, %s, %s)",
+                               (session['email'], iznos, result['emailTo']))
+            else:
+                cursor.execute("insert into Transactions (email, amount, emailTo) VALUES(%s, %s, %s)",
+                               (session['email'],iznos, Failed))
+        else:
+            print("Nema para")
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('get_transactions'))
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, host='0.0.0.0')

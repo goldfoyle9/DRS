@@ -121,7 +121,7 @@
               <span class="menu-icon">
                 <i class="mdi mdi-speedometer"></i>
               </span>
-              <span class="menu-title">GetTransactions</span>
+              <span class="menu-title">Get Transactions</span>
             </a>
           </li>
           <li class="nav-item menu-items">
@@ -132,6 +132,7 @@
               <span class="menu-title">Send money</span>
             </a>
           </li>
+
 
 
 
@@ -330,27 +331,59 @@
         <!-- partial -->
         <div class="main-panel">
           <div class="content-wrapper">
-              <h3><b>Prikaz stanja u valutama</b></h3>
-              <ul>
-                  <div class="form-group">
-                    <label>Dinari(RSD): {{result[0]}} </label>
-                  </div>
-                  <div class="form-group">
-                    <label>Euri(EUR): {{result[1]}}</label>
-                  </div>
-                  <div class="form-group">
-                    <label>Dolari(USD): {{result[2]}}</label>
-                  </div>
-                  <div class="form-group">
-                    <label>Jeni(JPI): {{result[3]}}</label>
-                  </div>
-                  <div class="form-group">
-                    <label>Australijski dolari(AUD): {{result[4]}}</label>
-                  </div>
-                  <div class="form-group">
-                    <label>Funte(gbp): {{result[5]}}</label>
-                  </div>
-              </ul>
+             <div class="container-scroller">
+                <div class="container-fluid page-body-wrapper full-page-wrapper">
+                  <div class="row w-100 m-0">
+                    <div class="content-wrapper full-page-wrapper d-flex align-items-center auth login-bg">
+                      <div class="card col-lg-4 mx-auto">
+                        <div class="card-body px-5 py-5">
+                          <h3 class="card-title text-center mb-3">Enter recipient information</h3>
+                          <form action="http://localhost:5000/send_transaction" method="post" enctype="multipart/form-data">
+                            <div class="form-group">
+                              <label>Email of recipient* </label>
+                              <input type="text" name="emailTo" id="emailTo" required class="form-control p_input">
+                            </div>
+                            <div class="form-group">
+                              <label>Amount *</label>
+                              <input type="number" class="form-control p_input" name="amount" id="amount" required><br>
+                            </div>
+                            <div class="form-group">
+                              <label for="RSD">RSD </label>
+                              <input type="radio" class="form-control p_input" name="valuta" id="RSD" value="RSD" checked><br>
+                            </div>
+                            <div class="form-group">
+                              <label for="EUR">EUR </label>
+                              <input type="radio" class="form-control p_input" name="valuta" id="EUR" value="EUR"><br>
+                            </div>
+                            <div class="form-group">
+                              <label for="USD">USD </label>
+                              <input type="radio" class="form-control p_input" name="valuta" id="USD" value="USD"><br>
+                            </div>
+                            <div class="form-group">
+                              <label for="JPY">JPY </label>
+                              <input type="radio" class="form-control p_input" name="valuta" id="JPY" value="JPY"><br>
+                            </div>
+                            <div class="form-group">
+                              <label for="AUD">AUD </label>
+                              <input type="radio" class="form-control p_input" name="valuta" id="AUD" value="AUD"><br>
+                            </div>
+                            <div class="form-group">
+                              <label for="GBP">GBP </label>
+                              <input type="radio" class="form-control p_input" name="valuta" id="GBP" value="GBP"><br>
+                            </div>
+                            <div class="text-center">
+                              <button type="submit" class="btn btn-primary btn-block enter-btn">Send</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+          <!-- content-wrapper ends -->
+        </div>
+        <!-- row ends -->
+      </div>
+      <!-- page-body-wrapper ends -->
+    </div>
           </div>
         </div>
 
