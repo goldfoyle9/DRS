@@ -1,12 +1,13 @@
+import multiprocessing
 import os
 import random
 import threading
 
 from time import sleep
 import requests as requests
-from multiprocessing import Process
+from multiprocessing import Process, Lock
 import response
-#from classes import DatabaseFunctions
+
 
 from flask import Flask, render_template, flash, request, session, url_for
 from werkzeug.utils import redirect
@@ -27,7 +28,6 @@ app.secret_key = 'any random string'
 mysql = MySQL()
 app.config['MYSQL_DATABASE_USER'] = 'root'
 app.config['MYSQL_DATABASE_PASSWORD'] = 'password'
-app.config['MYSQL_DATABASE_DB'] = 'drs_db'
 app.config['MYSQL_DATABASE_HOST'] = 'db' #za docker
 #app.config['MYSQL_DATABASE_HOST'] = '127.0.0.1'
 mysql.init_app(app)
@@ -97,15 +97,21 @@ def login():
 def register_page():
     if request.method == 'POST':
         result = request.form
-        register(result, mysql)
+        lock = Lock()
+        P = Process(target = register, args=(result, lock))
+        P.start()
+
     return render_template("login.html", result=result)
+
 
 
 @app.route('/modify_profile', methods=["GET", "POST"])
 def modify_profile(temp=None):
     result = request.form
-
-    modify(result, mysql, session['email'])
+    lock = Lock()
+    p = Process(target = modify, args=(result, session['email'], lock))
+    p.start()
+    #modify(result, mysql, session['email'])
 
     session['name'] = result['name']
 
@@ -193,7 +199,7 @@ def add_balance():
 @app.route('/get_transactions', methods= ["GET", "POST"])
 def get_transactions():
 
-    conn= mysql.connect()
+    conn = mysql.connect()
     cursor = conn.cursor()
     cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (session['email'], session['email']))
     data = cursor.fetchall()
@@ -201,37 +207,6 @@ def get_transactions():
     cursor.close()
     conn.close()
     return render_template("transactions.html", transactions = data)
-
-def proces_proba(email, emailTo, iznos, stanje,  mysql):
-    conn = mysql.connect()
-    cursor = conn.cursor()
-    Failed = "None"
-    cursor.execute("update Users set balance=%s where email=%s", (stanje - iznos, email))
-    cursor.execute("select * from Users where email=%s", emailTo)
-    user = cursor.fetchone()
-
-    cursor.execute("insert into Transactions (email, amount, emailTo, transactionStatus) VALUES(%s, %s, %s, %s)",
-                   (email, iznos, emailTo, "U obradi"))
-    conn.commit()
-
-    cursor.close()
-    conn.close()
-
-    sleep(10)
-
-    conn = mysql.connect()
-    cursor = conn.cursor()
-
-    if (user[8]):
-        cursor.execute("update Users set balance=balance+%s where email=%s", (iznos, emailTo))
-        cursor.execute("update Transactions set transactionStatus=%s where emailTo=%s and amount=%s",
-                       ("Uspesno", emailTo, iznos))
-    else:
-        cursor.execute("update Transactions set transactionStatus=%s where emailTo=%s and amount=%s",
-                       ("Neuspesno", emailTo, iznos))
-    conn.commit()
-    cursor.close()
-    conn.close()
 
 
 
@@ -250,7 +225,6 @@ def send_transaction():
         stanje = transaction_provera(session['email'], mysql, iznos)
         if(stanje != False):
             tr = threading.Thread(target= proces_proba, args=(email, emailTo, iznos, stanje, mysql, ))
-
             tr.daemon = True
             tr.start()
             #proces_proba(email, emailTo, iznos, stanje,  mysql)
@@ -265,63 +239,27 @@ def send_transaction():
 @app.route('/sortAsc', methods= ["GET", "POST"])
 def sortAsc():
 
-    conn= mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s",(session['email'], session['email']) )
-    data = cursor.fetchall()
-    sorted_data = sorted(data, key=lambda tup: tup[1], reverse=False)
-    conn.commit()
-    cursor.close()
-    conn.close()
+    sorted_data = sortAscending(mysql, session['email'])
     return render_template("transactions.html", transactions = sorted_data)
 
 @app.route('/sortDesc', methods= ["GET", "POST"])
 def sortDesc():
 
-    conn= mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s",(session['email'], session['email']) )
-    data = cursor.fetchall()
-    sorted_data = sorted(data, key=lambda tup: tup[1], reverse=True)
-    conn.commit()
-    cursor.close()
-    conn.close()
+    sorted_data = sortDescending(mysql, session['email'])
     return render_template("transactions.html", transactions = sorted_data)
 
 
 @app.route('/filter_from', methods= ["GET", "POST"])
 def filter_from():
-
-    conn= mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (session['email'], session['email']))
-    data = cursor.fetchall()
-    transactions = []
-    for row in data:
-        if row[0] == session['email']:
-            transactions.append(row)
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+    transactions = filter_from_func()
     return render_template("transactions.html", transactions = transactions)
 
 
 @app.route('/filter_reciever', methods=["GET", "POST"])
 def filter_reciever():
-    conn = mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (session['email'], session['email']))
-    data = cursor.fetchall()
-    transactions = []
-    for row in data:
-        if row[2] == session['email']:
-            transactions.append(row)
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+    transactions = filter_receiver_func(mysql, session['email'])
     return render_template("transactions.html", transactions=transactions)
+
 
 
 def login_return(email, password, mysql):
@@ -330,27 +268,31 @@ def login_return(email, password, mysql):
     cursor.execute("SELECT * FROM Users WHERE email= %s AND passwrd= %s", (email, password))
     return cursor.fetchone()
 
-def register(params, mysql):
+def register(params, lock):
     conn = mysql.connect()
     cursor = conn.cursor()
+    lock.acquire()
     cursor.execute("INSERT INTO Users(firstname, lastname, email, address, city, country, passwrd, phoneNumber) "
                    "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (
                        params['name'], params['lastName'], params['email'], params['address'], params['city'],
                        params['country'], params['psw'], params['phone']))
     conn.commit()
+    lock.release()
     cursor.close()
     conn.close()
     return
 
-def modify(params, mysql, email):
+def modify(params, email, lock):
     conn = mysql.connect()
     cursor = conn.cursor()
-
+    lock.acquire()
     cursor.execute("UPDATE Users SET firstname=%s, lastname=%s, address=%s, city=%s, country=%s, passwrd=%s, "
                    "phoneNumber=%s WHERE email=%s",
                    (params['name'], params['lastName'], params['address'], params['city'],
                     params['country'], params['psw'], params['phone'], email))
+
     conn.commit()
+    lock.release()
     cursor.close()
     conn.close()
     return
@@ -417,5 +359,67 @@ def proces_proba(email, emailTo, iznos, stanje,  mysql):
     cursor.close()
     conn.close()
 
+
+def sortAscending(mysql, email):
+    conn = mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (email, email))
+    data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    sorted_data = sorted(data, key=lambda tup: tup[1], reverse=False)
+    return sorted_data
+
+def sortDescending(mysql, email):
+    conn = mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (email, email))
+    data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    sorted_data = sorted(data, key=lambda tup: tup[1], reverse=True)
+
+    return sorted_data
+
+def filter_receiver_func(mysql, email):
+    conn = mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (email, email))
+    data = cursor.fetchall()
+    transactions = []
+    for row in data:
+        if row[2] == email:
+            transactions.append(row)
+
+    cursor.close()
+    conn.close()
+    return transactions
+
+def filter_from_func(mysql, email):
+    conn = mysql.connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * from Transactions where email=%s or emailTo=%s", (email, email))
+    data = cursor.fetchall()
+    transactions = []
+    for row in data:
+        if row[0] == email:
+            transactions.append(row)
+
+    cursor.close()
+    conn.close()
+
+    return transactions
+
+
+def foo(q):
+    q.put('hello')
+
+
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn')
     app.run(debug=True, port=5000, host='0.0.0.0')
+
+    q = multiprocessing.Queue()
+    p = Process(target=foo, args=(q,))
+    p.start()
