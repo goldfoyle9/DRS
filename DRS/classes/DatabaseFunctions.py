@@ -71,7 +71,7 @@ def proces_proba(email, emailTo, iznos, stanje,  mysql):
     cursor.execute("select * from Users where email=%s", emailTo)
     user = cursor.fetchone()
 
-    cursor.execute("insert into Transactions (email, amount, emailTo, transactionStatus) VALUES(%s, %s, %s)",
+    cursor.execute("insert into Transactions (email, amount, emailTo, transactionStatus) VALUES(%s, %s, %s, %s)",
                    (email, iznos, emailTo, "U obradi"))
     conn.commit()
 
@@ -85,10 +85,10 @@ def proces_proba(email, emailTo, iznos, stanje,  mysql):
 
     if (user[8]):
         cursor.execute("update Users set balance=balance+%s where email=%s", (iznos, emailTo))
-        cursor.execute("update Transcations set transactionStatus=%s where emailTo=%s and amount=%s",
+        cursor.execute("update Transactions set transactionStatus=%s where emailTo=%s and amount=%s",
                        ("Uspesno", emailTo, iznos))
     else:
-        cursor.execute("update Transcations set transactionStatus=%s where emailTo=%s and amount=%s",
+        cursor.execute("update Transactions set transactionStatus=%s where emailTo=%s and amount=%s",
                        ("Neuspesno", emailTo, iznos))
     conn.commit()
     cursor.close()
