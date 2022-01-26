@@ -1,9 +1,12 @@
 import os
 import random
+import threading
 
+from time import sleep
 import requests as requests
-
+from multiprocessing import Process
 import response
+from DRS.classes import DatabaseFunctions as dbfun
 
 from flask import Flask, render_template, flash, request, session, url_for
 from werkzeug.utils import redirect
@@ -25,13 +28,14 @@ mysql = MySQL()
 app.config['MYSQL_DATABASE_USER'] = 'root'
 app.config['MYSQL_DATABASE_PASSWORD'] = 'password'
 app.config['MYSQL_DATABASE_DB'] = 'drs_db'
-# app.config['MYSQL_DATABASE_HOST'] = 'db' #za docker
+#app.config['MYSQL_DATABASE_HOST'] = 'db' #za docker
 app.config['MYSQL_DATABASE_HOST'] = '127.0.0.1'
 mysql.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:password@mysql:3306/drs_db'
 db.init_app(app)
 ma.init_app(app)
 
+global send_Transaction
 
 @app.route("/")
 def main():
@@ -79,11 +83,7 @@ def login():
     if request.method == "POST":
         email = request.form['email']
         password = request.form['psw']
-
-        conn = mysql.connect()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Users WHERE email= %s AND passwrd= %s", (email, password))
-        temp = cursor.fetchone()
+        temp = dbfun.login_return(email, password, mysql)
         if (temp):
             session['email'] = temp[2]
             session['name'] = temp[0]
@@ -97,49 +97,15 @@ def login():
 def register_page():
     if request.method == 'POST':
         result = request.form
-        conn = mysql.connect()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO Users(firstname, lastname, email, address, city, country, passwrd, phoneNumber) "
-                       "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (
-                           result['name'], result['lastName'], result['email'], result['address'], result['city'],
-                           result['country'], result['psw'], result['phone']))
-        conn.commit()
-        cursor.close()
-        conn.close()
+        dbfun.register(result, mysql)
     return render_template("login.html", result=result)
-
-
-
-def get_profile_information(temp):
-    conn = mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Users WHERE email= %s", (session['email']))
-    row = cursor.fetchone()
-    temp.name = row[0]
-    temp.lastname = row[1]
-    temp.email = row[2]
-    temp.address = row[3]
-    temp.city = row[4]
-    temp.country = row[5]
-    temp.phoneNumber = row[6]
-    cursor.close()
-    conn.close()
-    return temp
-
 
 
 @app.route('/modify_profile', methods=["GET", "POST"])
 def modify_profile(temp=None):
-    conn = mysql.connect()
-    cursor = conn.cursor()
     result = request.form
-    cursor.execute("UPDATE Users SET firstname=%s, lastname=%s, address=%s, city=%s, country=%s, passwrd=%s, "
-                   "phoneNumber=%s WHERE email=%s", (result['name'], result['lastName'], result['address'], result['city'],
-                   result['country'], result['psw'], result['phone'], session['email']))
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+    dbfun.modify(result, mysql, session['email'])
 
     session['name'] = result['name']
 
@@ -148,12 +114,8 @@ def modify_profile(temp=None):
 
 @app.route('/check_balance', methods=["POST", "GET"])
 def check_balance():
-    conn = mysql.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Users WHERE email=%s",
-                   session['email'])
 
-    row = cursor.fetchone()
+    row = dbfun.balance_check(session['email'], mysql)
     dinari = row[9]
     response = requests.get('http://api.exchangeratesapi.io/v1/latest?access_key=fba506b7b878a42746e79023db275313')
     valute = response.json()['rates']
@@ -164,7 +126,6 @@ def check_balance():
     gbp = euri*valute['GBP']
     result = [dinari, euri, dolari, jeni, aud, gbp]
 
-    conn.close()
     return render_template('balance.html', result=result)
 
 
@@ -241,37 +202,64 @@ def get_transactions():
     conn.close()
     return render_template("transactions.html", transactions = data)
 
+def proces_proba(email, emailTo, iznos, stanje,  mysql):
+    conn = mysql.connect()
+    cursor = conn.cursor()
+    Failed = "None"
+    cursor.execute("update Users set balance=%s where email=%s", (stanje - iznos, email))
+    cursor.execute("select * from Users where email=%s", emailTo)
+    user = cursor.fetchone()
+
+    cursor.execute("insert into Transactions (email, amount, emailTo, transactionStatus) VALUES(%s, %s, %s, %s)",
+                   (email, iznos, emailTo, "U obradi"))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    sleep(10)
+
+    conn = mysql.connect()
+    cursor = conn.cursor()
+
+    if (user[8]):
+        cursor.execute("update Users set balance=balance+%s where email=%s", (iznos, emailTo))
+        cursor.execute("update Transactions set transactionStatus=%s where emailTo=%s and amount=%s",
+                       ("Uspesno", emailTo, iznos))
+    else:
+        cursor.execute("update Transactions set transactionStatus=%s where emailTo=%s and amount=%s",
+                       ("Neuspesno", emailTo, iznos))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+
 @app.route('/send_transaction', methods=["GET", "POST"])
 def send_transaction():
     if request.method == "POST":
         result = request.form
-        conn = mysql.connect()
-        cursor = conn.cursor()
-        Failed = "None"
-        cursor.execute("select * from Users where email=%s", session['email'])
-        row = cursor.fetchone()
         valuta= result['valuta']
         response = requests.get('http://api.exchangeratesapi.io/v1/latest?access_key=fba506b7b878a42746e79023db275313')
         valute = response.json()['rates']
         dinar = valute['RSD']
         euro = float(result['amount'])/valute[valuta]
         iznos = dinar*euro
-        if(row[9]>=iznos):
-            cursor.execute("update Users set balance=%s where email=%s", (row[9]-iznos, session['email']))
-            cursor.execute("select * from Users where email=%s", result['emailTo'])
-            user = cursor.fetchone()
-            if (user[8]):
-                cursor.execute("update Users set balance=balance+%s where email=%s",(iznos, result['emailTo']) )
-                cursor.execute("insert into Transactions (email, amount, emailTo) VALUES(%s, %s, %s)",
-                               (session['email'], iznos, result['emailTo']))
-            else:
-                cursor.execute("insert into Transactions (email, amount, emailTo) VALUES(%s, %s, %s)",
-                               (session['email'],iznos, Failed))
+        email = session['email']
+        emailTo = result['emailTo']
+        stanje = dbfun.transaction_provera(session['email'], mysql, iznos)
+        if(stanje != False):
+            tr = threading.Thread(target= proces_proba, args=(email, emailTo, iznos, stanje, mysql, ))
+
+            tr.daemon = True
+            tr.start()
+            #proces_proba(email, emailTo, iznos, stanje,  mysql)
+            #p = Process(target=proces_proba, args=(email, emailTo, iznos, stanje, mysql, ))
+            #p.daemon = True
+            #p.start()
         else:
             return render_template("send_transaction.html", error="Nemate dovoljno para na racunu")
-    conn.commit()
-    cursor.close()
-    conn.close()
+
     return redirect(url_for('get_transactions'))
 
 @app.route('/sortAsc', methods= ["GET", "POST"])
@@ -334,6 +322,8 @@ def filter_reciever():
     cursor.close()
     conn.close()
     return render_template("transactions.html", transactions=transactions)
+
+
 
 
 if __name__ == "__main__":
